@@ -250,7 +250,8 @@ export default function AdminDashboard({ allTasks, onTaskDelete }) {
           <div className="roles-panel">
             <h3>🎭 Organization Roles</h3>
             <p className="roles-subtext">
-              <strong>manager</strong> is available in every org by default. Add custom roles that match your team structure.
+              <strong>manager</strong> is always available. Add custom roles that match your team — Designer, Analyst, Sales Rep, Copywriter, anything.
+              Custom roles slot into the same pipeline as developer and QA: they pick tasks from the queue, work on them, and submit for review.
             </p>
 
             {/* Reserved */}

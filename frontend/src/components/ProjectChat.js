@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import api from '../api';
+import { SOCKET_URL } from '../config';
 
 const EMOJIS = ['👍','👎','❤️','😂','🎉','🔥','👀','✅','❌','🚀','💯','🤔','😅','💪','🙏'];
 
@@ -84,7 +85,7 @@ export default function ProjectChat({ projectId, currentUser, projectMembers = [
   // ── Socket setup ──
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const socket = io('http://localhost:5000', { auth: { token } });
+    const socket = io(SOCKET_URL, { auth: { token } });
     socketRef.current = socket;
 
     socket.on('online-users', setOnlineUsers);

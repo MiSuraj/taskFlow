@@ -57,7 +57,12 @@ router.post('/create-user', auth, requireRole('admin'), async (req, res) => {
     const { username, password, role } = req.body;
     const { User } = req.models;
     if (!username || !password || !role) return res.status(400).json({ message: 'username, password and role required' });
-    if (!['manager', 'developer', 'qa'].includes(role)) return res.status(400).json({ message: 'Invalid role' });
+    // The default tenant is owner-only — no extra users allowed
+    if (req.tenant.slug === 'default') return res.status(403).json({ message: 'Cannot create users in the owner tenant' });
+    if (!['manager', 'developer', 'qa'].includes(role)
+      && !(req.tenant.customRoles || []).some(r => r.name.toLowerCase() === role.toLowerCase())) {
+      return res.status(400).json({ message: 'Invalid role' });
+    }
     const exists = await User.findOne({ username });
     if (exists) return res.status(400).json({ message: 'Username already taken' });
     const hashed = await bcrypt.hash(password, 10);

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import api from '../api';
+import { SOCKET_URL } from '../config';
 
 const SECTION_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#9b59b6', '#e74c3c', '#06b6d4'];
 
@@ -32,7 +33,7 @@ export default function ProjectDoc({ projectId, currentUser }) {
   // Connect socket
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const socket = io('http://localhost:5000', { auth: { token } });
+    const socket = io(SOCKET_URL, { auth: { token } });
     socketRef.current = socket;
 
     socket.emit('join-doc', projectId);

@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api';
 
 const slugify = (v) => String(v || '').toLowerCase().trim()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-const PLANS = [
+const DEFAULT_PLANS = [
   {
     key: 'basic', name: 'Basic', price: 499, badge: '',
     features: [
@@ -49,6 +50,13 @@ const PLANS = [
   },
 ];
 
+const formatPlanPrice = (plan) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: plan.currency || 'INR',
+    maximumFractionDigits: 0,
+  }).format(plan.price || 0);
+
 const PRESET_COLORS = ['#6366f1','#8b5cf6','#ec4899','#ef4444','#f97316','#f59e0b','#10b981','#06b6d4','#3b82f6','#64748b'];
 const STEPS = ['plan', 'payment', 'setup'];
 const STEP_META = {
@@ -72,7 +80,8 @@ export default function RegisterOrganization() {
   const navigate = useNavigate();
 
   const [step, setStep]               = useState('plan');
-  const [plan, setPlan]               = useState(PLANS[1]);
+  const [plans, setPlans]             = useState(DEFAULT_PLANS);
+  const [plan, setPlan]               = useState(DEFAULT_PLANS[1]);
   const [mockPayment, setMockPayment] = useState(null);
   const [form, setForm] = useState({
     organizationName: '', slug: '', ownerEmail: '',
@@ -87,6 +96,35 @@ export default function RegisterOrganization() {
   );
 
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    let mounted = true;
+    api.get('/tenants/plans').then(({ data }) => {
+      if (!mounted) return;
+      const nextPlans = DEFAULT_PLANS.map(defaultPlan => {
+        const remote = data.plans?.find(p => p.key === defaultPlan.key);
+        if (!remote) return defaultPlan;
+        return {
+          ...defaultPlan,
+          name: remote.name || defaultPlan.name,
+          features: remote.features?.length ? remote.features : defaultPlan.features,
+          price: remote.amount,
+          currency: remote.currency || 'INR',
+          badge: remote.badge ?? defaultPlan.badge,
+          description: remote.description || '',
+          contactOnly: !!remote.contactOnly,
+          limits: {
+            ai: remote.ai,
+            externalChat: remote.externalChat,
+            users: remote.maxUsers || Infinity,
+          },
+        };
+      });
+      setPlans(nextPlans);
+      setPlan(prev => nextPlans.find(p => p.key === prev.key) || nextPlans[1]);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -142,7 +180,7 @@ export default function RegisterOrganization() {
           <div className="rg-aside-plan-summary">
             <span className="rg-aside-plan-label">Selected plan</span>
             <span className="rg-aside-plan-name">{plan.name}</span>
-            <span className="rg-aside-plan-price">₹{plan.price.toLocaleString()}/mo</span>
+            <span className="rg-aside-plan-price">{formatPlanPrice(plan)}/mo</span>
             <div className="rg-aside-plan-limits">
               <span className={plan.limits.ai ? 'limit-on' : 'limit-off'}>🤖 AI {plan.limits.ai ? 'included' : 'not included'}</span>
               <span className={plan.limits.externalChat ? 'limit-on' : 'limit-off'}>💬 Ext. chat {plan.limits.externalChat ? 'included' : 'not included'}</span>
@@ -169,18 +207,20 @@ export default function RegisterOrganization() {
                 <p>You can upgrade or change anytime. Payment is mocked for testing.</p>
               </div>
               <div className="rg-plan-grid">
-                {PLANS.map(p => (
-                  p.key === 'enterprise' ? (
-                    <a key="enterprise" href="mailto:sales@taskflow.io" className="rg-plan-card rg-plan-enterprise">
+                {plans.map(p => (
+                  p.contactOnly ? (
+                    <a key={p.key} href="mailto:sales@taskflow.io" className="rg-plan-card rg-plan-enterprise">
                       <div className="rg-plan-name">{p.name}</div>
-                      <div className="rg-plan-price rg-plan-contact">Contact us</div>
+                      <div className="rg-plan-price rg-plan-contact">
+                        {p.price > 0 ? `${formatPlanPrice(p)}/mo` : 'Contact us'}
+                      </div>
                       <ul className="rg-plan-features">
                         {p.features.map(f => <li key={f}><span>✓</span>{f}</li>)}
                       </ul>
                       <div className="rg-plan-limits-row">
-                        <span className="limit-pill on">🤖 AI</span>
-                        <span className="limit-pill on">💬 Ext. Chat</span>
-                        <span className="limit-pill on">👥 ∞</span>
+                        <span className={p.limits.ai ? 'limit-pill on' : 'limit-pill'}>🤖 AI</span>
+                        <span className={p.limits.externalChat ? 'limit-pill on' : 'limit-pill'}>💬 Ext. Chat</span>
+                        <span className="limit-pill on">👥 {p.limits.users === Infinity ? '∞' : p.limits.users}</span>
                       </div>
                       <div className="rg-enterprise-cta">Get in touch →</div>
                     </a>
@@ -190,7 +230,7 @@ export default function RegisterOrganization() {
                     onClick={() => setPlan(p)}>
                     {p.badge && <div className="rg-plan-badge">{p.badge}</div>}
                     <div className="rg-plan-name">{p.name}</div>
-                    <div className="rg-plan-price">₹{p.price.toLocaleString()}<span>/mo</span></div>
+                    <div className="rg-plan-price">{formatPlanPrice(p)}<span>/mo</span></div>
                     <ul className="rg-plan-features">
                       {p.features.map(f => <li key={f}><span>✓</span>{f}</li>)}
                     </ul>
@@ -225,7 +265,7 @@ export default function RegisterOrganization() {
                   <span className="rg-payment-plan-name">{plan.name} plan</span>
                   <span className="rg-payment-plan-badge">Selected</span>
                 </div>
-                <div className="rg-payment-amount">₹{plan.price.toLocaleString()}<span>/month</span></div>
+                <div className="rg-payment-amount">{formatPlanPrice(plan)}<span>/month</span></div>
               </div>
 
               <div className="rg-card-preview">
@@ -240,7 +280,7 @@ export default function RegisterOrganization() {
 
               <div className="rg-actions">
                 <button className="rg-btn-primary" onClick={() => {
-                  setMockPayment({ paid: true, paymentId: `mock_${Date.now()}`, amount: plan.price, currency: 'INR' });
+                  setMockPayment({ paid: true, paymentId: `mock_${Date.now()}`, amount: plan.price, currency: plan.currency || 'INR' });
                   setStep('setup');
                 }}>✓ Confirm Mock Payment</button>
                 <button className="rg-btn-ghost" onClick={() => setStep('plan')}>← Back</button>
@@ -310,13 +350,7 @@ export default function RegisterOrganization() {
                   <div className="rg-plan-notice-icon">ℹ️</div>
                   <div>
                     <strong>{plan.name} plan</strong>
-                    <span> — {
-                      plan.key === 'basic'
-                        ? 'AI and external chat (WhatsApp/Teams/Google Chat) are not on this plan.'
-                        : plan.key === 'starter'
-                        ? 'AI is included. External chat bridge requires the Business plan.'
-                        : 'AI and external chat bridge (WhatsApp, Teams, Google Chat) are included.'
-                    }</span>
+                    <span> — AI is {plan.limits.ai ? 'included' : 'not included'} and external chat is {plan.limits.externalChat ? 'included' : 'not included'} on this plan.</span>
                     <button type="button" className="rg-change-plan-btn" onClick={() => setStep('plan')}>Change plan</button>
                   </div>
                 </div>

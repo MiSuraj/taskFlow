@@ -4,6 +4,7 @@ import QueueBoard from '../components/QueueBoard';
 import CreateTaskModal from '../components/CreateTaskModal';
 import ManagerDashboard from './ManagerDashboard';
 import AdminDashboard from './AdminDashboard';
+import OwnerDashboard from './OwnerDashboard';
 import ProjectDoc from '../components/ProjectDoc';
 import ProjectChat from '../components/ProjectChat';
 import api from '../api';
@@ -21,6 +22,12 @@ const QUOTES = [
   'One task at a time. That\'s how mountains move.',
 ];
 
+const fmtPlanPrice = (plan) => new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: plan?.currency || 'INR',
+  maximumFractionDigits: 0,
+}).format(plan?.amount || 0);
+
 function getGreeting(name) {
   const h = new Date().getHours();
   const g = h < 12 ? '☀️ Good morning' : h < 17 ? '👋 Good afternoon' : '🌙 Good evening';
@@ -33,6 +40,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [platformPlans, setPlatformPlans] = useState([]);
   const [activeProject, setActiveProject] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState('global');
@@ -59,15 +67,21 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (user.role === 'owner') return;
     fetchTasks();
     api.get('/users').then(({ data }) => setUsers(data));
     api.get('/projects').then(({ data }) => {
       setProjects(data);
       setActiveProject(prev => prev ?? (data.length > 0 ? data[0] : null));
     });
-  }, [fetchTasks]);
+  }, [fetchTasks, user.role]);
 
   useEffect(() => {
+    api.get('/tenants/plans').then(({ data }) => setPlatformPlans(data.plans || [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (user.role === 'owner') setActiveTab('owner');
     if (user.role === 'admin') setActiveTab('admin');
   }, [user.role]);
 
@@ -140,14 +154,20 @@ export default function Dashboard() {
   const qaQueue = projectTasks.filter(t => t.status === 'in-qa' && !t.qaAssignedTo);
 
   const planKey = tenant?.subscription?.plan || 'basic';
-  const canExternalChat = ['business','enterprise'].includes(planKey);
+  const currentPlan = platformPlans.find(plan => plan.key === planKey);
+  const canExternalChat = currentPlan?.externalChat ?? ['business','enterprise'].includes(planKey);
+  const canUseAi = currentPlan?.ai ?? ['starter','business','enterprise'].includes(planKey);
+  const businessPlan = platformPlans.find(plan => plan.key === 'business');
 
   const isAdmin   = user.role === 'admin';
+  const isOwner   = user.role === 'owner';
   const isManager = user.role === 'manager';
   const isQA      = user.role === 'qa';
   const isDev     = user.role === 'developer';
 
-  const tabs = isAdmin ? [
+  const tabs = isOwner ? [
+    { key: 'owner', label: 'Platform' },
+  ] : isAdmin ? [
     { key: 'admin', label: '🛡️ Admin Panel' },
   ] : [
     { key: 'global', label: `🌐 Queue (${globalQueue.length})` },
@@ -198,7 +218,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          {projects.length > 0 && (
+          {!isOwner && projects.length > 0 && (
             <select className="project-switcher" value={activeProject?._id || ''}
               onChange={e => setActiveProject(projects.find(p => p._id === e.target.value) || null)}>
               {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
@@ -210,7 +230,7 @@ export default function Dashboard() {
             <button className="btn btn-create" onClick={() => setShowModal(true)}>+ New Task</button>
           )}
           <span className={`role-chip role-${user.role}`}>
-            {user.role === 'admin' ? '🛡️' : user.role === 'manager' ? '👔' : user.role === 'developer' ? '💻' : '🔍'} {user.username}
+            {user.role === 'owner' ? 'Owner' : user.role === 'admin' ? '🛡️' : user.role === 'manager' ? '👔' : user.role === 'developer' ? '💻' : '🔍'} {user.username}
           </span>
           <button className="btn btn-logout" onClick={logout}>Logout</button>
         </div>
@@ -225,7 +245,7 @@ export default function Dashboard() {
           <p>✦ {quote}</p>
         </div>
         <div className={`role-chip role-${user.role} profile-role-chip`}>
-          {user.role === 'admin' ? '🛡️' : user.role === 'manager' ? '👔' : user.role === 'developer' ? '💻' : '🔍'}&nbsp;{user.role}
+          {user.role === 'owner' ? 'Owner' : user.role === 'admin' ? '🛡️' : user.role === 'manager' ? '👔' : user.role === 'developer' ? '💻' : '🔍'}&nbsp;{user.role}
         </div>
       </div>
 
@@ -237,6 +257,8 @@ export default function Dashboard() {
       </div>
 
       <main className="main-content">
+        {activeTab === 'owner' && isOwner && <OwnerDashboard />}
+
         {/* GLOBAL QUEUE */}
         {activeTab === 'global' && (
           <QueueBoard title="📋 Global Task Queue" tasks={globalQueue} currentUser={user}
@@ -298,7 +320,7 @@ export default function Dashboard() {
             </section>
 
             {/* AI Configuration — only shown if plan supports it */}
-            {['starter','business','enterprise'].includes(tenant?.subscription?.plan) && (
+            {canUseAi && (
               <section className="ai-config-section">
                 <div className="ai-config-header">
                   <div>
@@ -421,7 +443,7 @@ export default function Dashboard() {
             <div className="upgrade-gate-plans">
               <div className="upgrade-gate-plan">
                 <span>Business</span>
-                <strong>₹2,499/mo</strong>
+                <strong>{fmtPlanPrice(businessPlan || { amount: 2499, currency: 'INR' })}/mo</strong>
                 <small>WhatsApp · Teams · Google Chat</small>
               </div>
               <div className="upgrade-gate-plan">

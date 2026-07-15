@@ -20,4 +20,9 @@ const requireRole = (...roles) => (req, res, next) => {
   return res.status(403).json({ message: 'Access denied' });
 };
 
-module.exports = { auth, requireRole, verifyToken };
+const requireOwner = (req, res, next) => {
+  if (req.user.role === 'owner' && req.tenant?.slug === 'default') return next();
+  return res.status(403).json({ message: 'Owner access only' });
+};
+
+module.exports = { auth, requireRole, requireOwner, verifyToken };

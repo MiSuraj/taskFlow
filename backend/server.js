@@ -1,4 +1,7 @@
 require('dotenv').config();
+if (!globalThis.crypto) {
+  globalThis.crypto = require('node:crypto').webcrypto;
+}
 const express    = require('express');
 const http       = require('http');
 const { Server } = require('socket.io');
@@ -11,10 +14,19 @@ const { getTenantModels, makeDbName } = require('./src/config/tenantDb');
 
 const app    = express();
 const server = http.createServer(app);
-const io     = new Server(server, { cors: { origin: '*' } });
+const allowedOrigins = (process.env.CORS_ORIGIN || '*')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const corsOptions = {
+  origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+};
+const io     = new Server(server, { cors: corsOptions });
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
+
+app.get('/health', (req, res) => res.json({ ok: true }));
 
 app.use('/api/tenants',  require('./src/routes/tenants'));
 app.use('/api/auth',     require('./src/routes/auth'));
@@ -158,7 +170,14 @@ io.on('connection', (socket) => {
 
 async function seedIfEmpty() {
   const count = await Tenant.countDocuments();
-  if (count > 0) return;
+  if (count > 0) {
+    const defaultTenant = await Tenant.findOne({ slug: 'default' });
+    if (defaultTenant) {
+      const { User } = getTenantModels(defaultTenant.dbName);
+      await User.updateOne({ username: 'admin' }, { $set: { role: 'owner' } });
+    }
+    return;
+  }
   console.log('Seeding default organization...');
   const tenant = await Tenant.create({
     name: 'Default Organization',
@@ -173,14 +192,15 @@ async function seedIfEmpty() {
     },
   });
   const { User } = getTenantModels(tenant.dbName);
-  await User.create({ username: 'admin', password: await bcrypt.hash('admin123', 10), role: 'admin' });
-  console.log('Seeded: org default / admin / admin123');
+  await User.create({ username: 'admin', password: await bcrypt.hash('admin123', 10), role: 'owner' });
+  console.log('Seeded owner: org default / admin / admin123');
 }
 
 mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('MongoDB connected');
     await seedIfEmpty();
-    server.listen(process.env.PORT, () => console.log(`Server on port ${process.env.PORT}`));
+    const port = process.env.PORT || 5000;
+    server.listen(port, () => console.log(`Server on port ${port}`));
   })
   .catch(err => console.error(err));
