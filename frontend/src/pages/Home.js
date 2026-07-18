@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import AmbientBackground from '../components/three/AmbientScene';
 
 const WORDS = ['for freelancers.', 'for small product teams.', 'queue-first.', 'actually lean.'];
 
@@ -315,7 +316,7 @@ export default function Home() {
 
   return (
     <div className="lp-root">
-      <Particles />
+      <AmbientBackground variant="hero" fallback={<Particles />} />
 
       {/* ── Top info strip ── */}
       <div className="lp-topstrip">

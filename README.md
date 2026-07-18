@@ -5,16 +5,24 @@ Queue-based task manager with user boards, time tracking, and task types.
 ## Setup
 
 ### Prerequisites
-- Node.js 16+
+- JDK 21 and Maven
+- Node.js 16+ (frontend only)
 - MongoDB running locally on port 27017
 
 ### Backend
 ```bash
 cd backend
-npm install
-npm start
+export MONGO_BASE_URI="mongodb://localhost:27017"
+mvn -DskipTests package
+java -jar target/taskflow-backend.jar
 # runs on http://localhost:5000
 ```
+
+`JWT_SECRET` defaults to a dev-only placeholder — set a real one via `export JWT_SECRET="..."`
+before running anywhere beyond your own machine. See `backend/README.md` for architecture notes,
+and for the one extra step needed if you run the app from an IDE instead of `mvn`/`java` directly.
+The backend was originally an Express/Node service; it has been replaced with this Java/Spring
+Boot port.
 
 ### Frontend
 ```bash

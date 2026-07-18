@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import QueueBoard from '../components/QueueBoard';
 import CreateTaskModal from '../components/CreateTaskModal';
@@ -7,6 +7,7 @@ import AdminDashboard from './AdminDashboard';
 import OwnerDashboard from './OwnerDashboard';
 import ProjectDoc from '../components/ProjectDoc';
 import ProjectChat from '../components/ProjectChat';
+import AmbientBackground from '../components/three/AmbientScene';
 import api from '../api';
 
 const QUOTES = [
@@ -44,6 +45,8 @@ export default function Dashboard() {
   const [activeProject, setActiveProject] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [activeTab, setActiveTab] = useState('global');
+  const tabsRef = useRef(null);
+  const [tabIndicator, setTabIndicator] = useState({ transform: 'translateX(0px)', width: 0 });
   const [brandingForm, setBrandingForm] = useState({
     logoUrl: tenant?.branding?.logoUrl || '',
     primaryColor: tenant?.branding?.primaryColor || '#2563eb',
@@ -180,6 +183,17 @@ export default function Dashboard() {
     ...(activeProject && canExternalChat ? [{ key: 'ext-chat', label: '🔗 Ext. Chat' }] : []),
   ];
 
+  const tabsKey = tabs.map(t => t.key).join('|');
+  useLayoutEffect(() => {
+    const container = tabsRef.current;
+    const activeBtn = container?.querySelector('.tab.active');
+    if (!activeBtn) return;
+    setTabIndicator({
+      transform: `translateX(${activeBtn.offsetLeft}px)`,
+      width: activeBtn.offsetWidth,
+    });
+  }, [activeTab, tabsKey]);
+
   // All user boards grouped
   const userBoards = projectTasks
     .filter(t => t.assignedTo)
@@ -206,6 +220,7 @@ export default function Dashboard() {
       <header className="topbar">
         <div className="topbar-left">
           <div className="brand-lockup">
+            <AmbientBackground variant="brand" />
             {tenant?.branding?.logoUrl && <img src={tenant.branding.logoUrl} alt="" className="tenant-logo" />}
             <div>
               <h1 style={{ color: tenant?.branding?.primaryColor || undefined }}>
@@ -249,7 +264,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="tabs">
+      <div className="tabs" ref={tabsRef}>
+        <div className="tab-indicator" style={tabIndicator} />
         {tabs.map(t => (
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => setActiveTab(t.key)}>{t.label}</button>

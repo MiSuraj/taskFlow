@@ -1,0 +1,38 @@
+server:
+  port: ${PORT:5000}
+
+spring:
+  application:
+    name: taskflow-backend
+  jackson:
+    default-property-inclusion: non_null
+
+taskflow:
+  mongo:
+    # Base URI WITHOUT a database name, e.g. mongodb://localhost:27017
+    uri: ${MONGO_BASE_URI:mongodb://localhost:27017}
+    platform-database: ${PLATFORM_DB_NAME:taskflow_platform}
+  jwt:
+    # DEV-ONLY placeholder so the app boots without extra setup. Override with a real JWT_SECRET
+    # env var for anything beyond a local throwaway run — never rely on this value elsewhere.
+    secret: ${JWT_SECRET:local-dev-only-jwt-secret-change-before-any-shared-use}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:10080} # 7 days, matches the Node backend
+  cors:
+    allowed-origins: ${CORS_ORIGIN:http://localhost:3000}
+  seed:
+    enabled: ${SEED_ON_STARTUP:true}
+    default-tenant-slug: default
+    default-admin-username: admin
+    default-admin-password: admin123
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+logging:
+  level:
+    com.taskflow: INFO

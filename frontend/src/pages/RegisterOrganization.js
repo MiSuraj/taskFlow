@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
+import AmbientBackground from '../components/three/AmbientScene';
+import useTilt from '../hooks/useTilt';
 
 const slugify = (v) => String(v || '').toLowerCase().trim()
   .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -65,19 +67,72 @@ const STEP_META = {
   setup:   { label: 'Organization', num: 3 },
 };
 
-function Field({ label, hint, children }) {
+function Field({ id, label, hint, noFloat, children }) {
+  if (noFloat) {
+    return (
+      <div className="rg-field">
+        <label className="rg-label">{label}</label>
+        {children}
+        {hint && <span className="rg-hint">{hint}</span>}
+      </div>
+    );
+  }
   return (
-    <div className="rg-field">
-      <label className="rg-label">{label}</label>
+    <div className="rg-field rg-field-float">
       {children}
+      <label className="rg-label" htmlFor={id}>{label}</label>
       {hint && <span className="rg-hint">{hint}</span>}
     </div>
+  );
+}
+
+function PlanCard({ p, selected, onSelect }) {
+  const tiltRef = useTilt();
+
+  if (p.contactOnly) {
+    return (
+      <a ref={tiltRef} href="mailto:sales@taskflow.io" className="rg-plan-card rg-plan-enterprise">
+        <div className="rg-plan-name">{p.name}</div>
+        <div className="rg-plan-price rg-plan-contact">
+          {p.price > 0 ? `${formatPlanPrice(p)}/mo` : 'Contact us'}
+        </div>
+        <ul className="rg-plan-features">
+          {p.features.map(f => <li key={f}><span>✓</span>{f}</li>)}
+        </ul>
+        <div className="rg-plan-limits-row">
+          <span className={p.limits.ai ? 'limit-pill on' : 'limit-pill'}>🤖 AI</span>
+          <span className={p.limits.externalChat ? 'limit-pill on' : 'limit-pill'}>💬 Ext. Chat</span>
+          <span className="limit-pill on">👥 {p.limits.users === Infinity ? '∞' : p.limits.users}</span>
+        </div>
+        <div className="rg-enterprise-cta">Get in touch →</div>
+      </a>
+    );
+  }
+
+  return (
+    <button ref={tiltRef}
+      className={`rg-plan-card ${selected ? 'selected' : ''}`}
+      onClick={onSelect}>
+      {p.badge && <div className="rg-plan-badge">{p.badge}</div>}
+      <div className="rg-plan-name">{p.name}</div>
+      <div className="rg-plan-price">{formatPlanPrice(p)}<span>/mo</span></div>
+      <ul className="rg-plan-features">
+        {p.features.map(f => <li key={f}><span>✓</span>{f}</li>)}
+      </ul>
+      <div className="rg-plan-limits-row">
+        <span className={p.limits.ai ? 'limit-pill on' : 'limit-pill'}>🤖 AI</span>
+        <span className={p.limits.externalChat ? 'limit-pill on' : 'limit-pill'}>💬 Ext. Chat</span>
+        <span className="limit-pill on">👥 {p.limits.users === Infinity ? '∞' : p.limits.users}</span>
+      </div>
+      <div className={`rg-plan-select-indicator ${selected ? 'on' : ''}`} />
+    </button>
   );
 }
 
 export default function RegisterOrganization() {
   const { registerOrganization } = useAuth();
   const navigate = useNavigate();
+  const cardTiltRef = useTilt();
 
   const [step, setStep]               = useState('plan');
   const [plans, setPlans]             = useState(DEFAULT_PLANS);
@@ -152,6 +207,7 @@ export default function RegisterOrganization() {
 
   return (
     <div className="rg-root">
+      <AmbientBackground variant="auth" />
 
       {/* ── Left aside ── */}
       <aside className="rg-aside">
@@ -208,40 +264,7 @@ export default function RegisterOrganization() {
               </div>
               <div className="rg-plan-grid">
                 {plans.map(p => (
-                  p.contactOnly ? (
-                    <a key={p.key} href="mailto:sales@taskflow.io" className="rg-plan-card rg-plan-enterprise">
-                      <div className="rg-plan-name">{p.name}</div>
-                      <div className="rg-plan-price rg-plan-contact">
-                        {p.price > 0 ? `${formatPlanPrice(p)}/mo` : 'Contact us'}
-                      </div>
-                      <ul className="rg-plan-features">
-                        {p.features.map(f => <li key={f}><span>✓</span>{f}</li>)}
-                      </ul>
-                      <div className="rg-plan-limits-row">
-                        <span className={p.limits.ai ? 'limit-pill on' : 'limit-pill'}>🤖 AI</span>
-                        <span className={p.limits.externalChat ? 'limit-pill on' : 'limit-pill'}>💬 Ext. Chat</span>
-                        <span className="limit-pill on">👥 {p.limits.users === Infinity ? '∞' : p.limits.users}</span>
-                      </div>
-                      <div className="rg-enterprise-cta">Get in touch →</div>
-                    </a>
-                  ) : (
-                  <button key={p.key}
-                    className={`rg-plan-card ${plan.key === p.key ? 'selected' : ''}`}
-                    onClick={() => setPlan(p)}>
-                    {p.badge && <div className="rg-plan-badge">{p.badge}</div>}
-                    <div className="rg-plan-name">{p.name}</div>
-                    <div className="rg-plan-price">{formatPlanPrice(p)}<span>/mo</span></div>
-                    <ul className="rg-plan-features">
-                      {p.features.map(f => <li key={f}><span>✓</span>{f}</li>)}
-                    </ul>
-                    <div className="rg-plan-limits-row">
-                      <span className={p.limits.ai ? 'limit-pill on' : 'limit-pill'}>🤖 AI</span>
-                      <span className={p.limits.externalChat ? 'limit-pill on' : 'limit-pill'}>💬 Ext. Chat</span>
-                      <span className="limit-pill on">👥 {p.limits.users === Infinity ? '∞' : p.limits.users}</span>
-                    </div>
-                    <div className={`rg-plan-select-indicator ${plan.key === p.key ? 'on' : ''}`} />
-                  </button>
-                  )
+                  <PlanCard key={p.key} p={p} selected={plan.key === p.key} onSelect={() => setPlan(p)} />
                 ))}
               </div>
               <div className="rg-actions">
@@ -268,7 +291,7 @@ export default function RegisterOrganization() {
                 <div className="rg-payment-amount">{formatPlanPrice(plan)}<span>/month</span></div>
               </div>
 
-              <div className="rg-card-preview">
+              <div className="rg-card-preview" ref={cardTiltRef}>
                 <div className="rg-card-chip" />
                 <div className="rg-card-number">4242  4242  4242  4242</div>
                 <div className="rg-card-bottom">
@@ -299,39 +322,39 @@ export default function RegisterOrganization() {
               <form onSubmit={submit}>
                 <div className="rg-section-label">Organization</div>
                 <div className="rg-field-row">
-                  <Field label="Organization name">
-                    <input className="rg-input" placeholder="Acme Corp" value={form.organizationName}
+                  <Field id="rg-orgName" label="Organization name">
+                    <input id="rg-orgName" className="rg-input" placeholder=" " value={form.organizationName}
                       onChange={e => upd('organizationName', e.target.value)} required />
                   </Field>
-                  <Field label="Login slug" hint={previewSlug ? `Login as: ${previewSlug}` : ''}>
-                    <input className="rg-input" placeholder="acme-corp" value={form.slug}
+                  <Field id="rg-slug" label="Login slug" hint={previewSlug ? `Login as: ${previewSlug}` : ''}>
+                    <input id="rg-slug" className="rg-input" placeholder=" " value={form.slug}
                       onChange={e => upd('slug', e.target.value)} />
                   </Field>
                 </div>
-                <Field label="Billing email (optional)">
-                  <input className="rg-input" type="email" placeholder="billing@acme.com" value={form.ownerEmail}
+                <Field id="rg-ownerEmail" label="Billing email (optional)">
+                  <input id="rg-ownerEmail" className="rg-input" type="email" placeholder=" " value={form.ownerEmail}
                     onChange={e => upd('ownerEmail', e.target.value)} />
                 </Field>
 
                 <div className="rg-section-label" style={{ marginTop: 24 }}>Admin account</div>
                 <div className="rg-field-row">
-                  <Field label="Username">
-                    <input className="rg-input" placeholder="admin" value={form.username}
+                  <Field id="rg-username" label="Username">
+                    <input id="rg-username" className="rg-input" placeholder=" " value={form.username}
                       onChange={e => upd('username', e.target.value)} required />
                   </Field>
-                  <Field label="Password">
-                    <input className="rg-input" type="password" placeholder="••••••••" value={form.password}
+                  <Field id="rg-password" label="Password">
+                    <input id="rg-password" className="rg-input" type="password" placeholder=" " value={form.password}
                       onChange={e => upd('password', e.target.value)} required />
                   </Field>
                 </div>
 
                 <div className="rg-section-label" style={{ marginTop: 24 }}>Branding (optional)</div>
                 <div className="rg-field-row">
-                  <Field label="Logo URL">
-                    <input className="rg-input" placeholder="https://..." value={form.logoUrl}
+                  <Field id="rg-logoUrl" label="Logo URL">
+                    <input id="rg-logoUrl" className="rg-input" placeholder=" " value={form.logoUrl}
                       onChange={e => upd('logoUrl', e.target.value)} />
                   </Field>
-                  <Field label="Brand color">
+                  <Field label="Brand color" noFloat>
                     <div className="rg-color-row">
                       {PRESET_COLORS.slice(0, 8).map(c => (
                         <button key={c} type="button"

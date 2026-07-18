@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useLayoutEffect } from 'react';
 import api from '../api';
 import ProjectDoc from '../components/ProjectDoc';
 import ProjectChat from '../components/ProjectChat';
@@ -11,6 +11,8 @@ export default function ManagerDashboard({ user, onTasksChange, allTasks, onTask
   const [users, setUsers] = useState([]);
   const [activeProject, setActiveProject] = useState(null);
   const [tab, setTab] = useState('overview');
+  const tabsRef = useRef(null);
+  const [tabIndicator, setTabIndicator] = useState({ transform: 'translateX(0px)', width: 0 });
   const [showInvite, setShowInvite]    = useState(false);
   const [inviteForm, setInviteForm]     = useState({ username: '', password: '', role: 'developer' });
   const [addMemberUserId, setAddMemberUserId] = useState('');
@@ -75,6 +77,16 @@ export default function ManagerDashboard({ user, onTasksChange, allTasks, onTask
     ? users.filter(u => u.role !== 'manager' && !activeProject.members?.some(m => (m._id || m) === u._id))
     : [];
 
+  useLayoutEffect(() => {
+    const container = tabsRef.current;
+    const activeBtn = container?.querySelector('.tab.active');
+    if (!activeBtn) return;
+    setTabIndicator({
+      transform: `translateX(${activeBtn.offsetLeft}px)`,
+      width: activeBtn.offsetWidth,
+    });
+  }, [tab]);
+
   return (
     <div className="manager-panel">
       {/* Project Sidebar */}
@@ -97,7 +109,8 @@ export default function ManagerDashboard({ user, onTasksChange, allTasks, onTask
 
       {/* Main Content */}
       <div className="manager-main">
-        <div className="manager-tabs">
+        <div className="manager-tabs" ref={tabsRef}>
+          <div className="tab-indicator" style={tabIndicator} />
           {['overview', 'members', 'users', 'docs', 'chat', 'ai'].map(t => (
             <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
               {t === 'overview' ? '📊 Overview' : t === 'members' ? '👥 Members' : t === 'users' ? '🧑‍💼 All Users' : t === 'docs' ? '📄 Docs' : t === 'chat' ? '💬 Chat' : '🤖 AI'}

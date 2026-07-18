@@ -15,12 +15,16 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (tenantSlug, username, password) => {
     const { data } = await api.post('/auth/login', { tenantSlug, username, password });
+    const tenantData = data.tenant ?? data.user?.tenant;
+
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('tenantSlug', data.user.tenant.slug);
-    localStorage.setItem('tenant', JSON.stringify(data.user.tenant));
+    if (tenantData) {
+      localStorage.setItem('tenantSlug', tenantData.slug);
+      localStorage.setItem('tenant', JSON.stringify(tenantData));
+      setTenant(tenantData);
+    }
     setUser(data.user);
-    setTenant(data.user.tenant);
   };
 
   const registerOrganization = async (payload) => {
